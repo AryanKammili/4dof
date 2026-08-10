@@ -61,6 +61,12 @@ class AS5600 {
             return name;
         }
 
+        void debug() {
+            std::cout << "======Encoder " << name << " debug string ======" << std::endl;
+            std::cout << "Relative Position: " << relativePositionDegrees << std::endl;
+            std::cout << "Absolute Position: " << rawPositionDegrees << std::endl;  
+        }
+
     float getPositionDegrees(){
         int lowRead = 0;
         int highRead = 0;

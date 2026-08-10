@@ -6,9 +6,6 @@
 
 AS5600 encoder(164.004, "J1_Encoder");
 
-float j1RelativePos = 0.0;
-float j1AbsolutePos = 0.0;
-
 void setup() {
 
   Serial.begin(115200);
@@ -21,10 +18,6 @@ void setup() {
 
 void loop() {
   encoder.update();
-  j1RelativePos = encoder.getRelativePositionDegrees();
-  j1AbsolutePos = encoder.getAbsolutePositionDegrees();
-
-  std::cout << "Relative Position: " << j1RelativePos << std::endl;
-  std::cout << "Absolute Position: " << j1AbsolutePos << std::endl;  
+  encoder.debug();
   delay(1000);
 }
