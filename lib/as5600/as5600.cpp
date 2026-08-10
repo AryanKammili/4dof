@@ -3,6 +3,10 @@
 #include <cmath>
 #include <string>
 
+
+//TODO  : Figure out inverse logic //
+//TODO  : Figure out gearing logic //
+//TODO  : Add active warning setup //
 class AS5600 {
 
     private:
