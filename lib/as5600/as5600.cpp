@@ -11,6 +11,7 @@ class AS5600 {
 
     private:
         float offsetAngle;
+        float gearing;
         std::string name;
 
         int previousQuadrant;
@@ -19,19 +20,21 @@ class AS5600 {
         int numTurns;
 
     public:
-        AS5600(float offsetAngle, std::string name) {
+        AS5600(float offsetAngle, float gearing, std::string name) {
             this->offsetAngle = offsetAngle;
+            this->gearing = gearing;
             this->name = name;
 
             previousQuadrant = 0;
             rawPositionDegrees = 0;
             relativePositionDegrees = 0;
             numTurns = 0;
+
         }
 
         bool begin(int pSDA, int pSCL) {
             Wire.begin(pSDA, pSCL);
-            Wire.setClock(800000L);
+            Wire.setClock(400000L);
 
             while(!hasMagnet()) {
                // wait around
@@ -76,25 +79,14 @@ class AS5600 {
         int highRead = 0;
         float totalRead = 0;
         float degAngle = 0;
-        // Grab low bytes of angle //
+
         Wire.beginTransmission(Register::DATA);
-        Wire.write(Register::RAW_ANG_LOW);
-        Wire.endTransmission();
-        Wire.requestFrom(Register::DATA, 1);
+        Wire.write(Register::ANG_HIGH);
+        Wire.endTransmission(false);
+        Wire.requestFrom(Register::DATA, 2);
 
-        // bits 7:0 //
-        while (Wire.available() == 0);
-        lowRead = Wire.read();
-
-        // Grab high bytes of angle //
-        Wire.beginTransmission(Register::DATA);
-        Wire.write(Register::RAW_ANG_HIGH);
-        Wire.endTransmission();
-        Wire.requestFrom(Register::DATA, 1);
-
-        // bits 11:8//
-        while (Wire.available() == 0);
         highRead = Wire.read();
+        lowRead = Wire.read();
 
         // Shift the high read up 8 so that it represents the original 12 bit info //
         highRead = highRead << 8;
@@ -102,7 +94,7 @@ class AS5600 {
         totalRead = lowRead | highRead;
 
         // 12 bits -> 2^12 ticks. Thus (/ticks) * 360.0 //
-        degAngle = totalRead * (360.0 / std::pow(2, 12));
+        degAngle = totalRead * (360.0 / std::pow(2, 12)) * 1;
 
         float correctedAngle = degAngle - offsetAngle;
 

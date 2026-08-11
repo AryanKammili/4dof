@@ -5,7 +5,7 @@
 #define SDA_PIN 4
 #define SCL_PIN 5
 
-AS5600 encoder(0, "J1_Encoder");
+AS5600 encoder(60.4, 1, "J1_Encoder");
 
 void setup() {
 
@@ -21,6 +21,8 @@ void setup() {
 
 void loop() {
   encoder.update();
-  encoder.debug();
-  delay(1000);
+  Serial.print(encoder.getRelativePositionDegrees());
+  Serial.print(",");
+  Serial.println(encoder.getAbsolutePositionDegrees());
+  delay(100);
 }
