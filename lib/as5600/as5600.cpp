@@ -14,26 +14,36 @@ class AS5600 {
         float gearing;
         std::string name;
 
-        int previousQuadrant;
+        int SDA_PIN;
+        int SCL_PIN;
+        int DIR_PIN;
+
+        int previousAngle;
         float rawPositionDegrees;
         float relativePositionDegrees;
         int numTurns;
 
+        bool CCWPositive = false;
+
     public:
-        AS5600(float offsetAngle, float gearing, std::string name) {
+        AS5600(float offsetAngle, float gearing, int SDA_PIN, int SCL_PIN, int DIR_PIN, std::string name) {
             this->offsetAngle = offsetAngle;
             this->gearing = gearing;
             this->name = name;
 
-            previousQuadrant = 0;
+            this->SDA_PIN = SDA_PIN;
+            this->SCL_PIN = SCL_PIN;
+            this->DIR_PIN = DIR_PIN;
+
+            previousAngle = 0;
             rawPositionDegrees = 0;
             relativePositionDegrees = 0;
             numTurns = 0;
 
         }
 
-        bool begin(int pSDA, int pSCL) {
-            Wire.begin(pSDA, pSCL);
+        bool begin() {
+            Wire.begin(SDA_PIN, SCL_PIN);
             Wire.setClock(400000L);
 
             while(!hasMagnet()) {
@@ -53,11 +63,11 @@ class AS5600 {
 
         // getter functions to be used outside of class //
         float getAbsolutePositionDegrees() {
-            return rawPositionDegrees;
+            return rawPositionDegrees / gearing;
         }
 
         float getRelativePositionDegrees() {
-            return relativePositionDegrees;
+            return relativePositionDegrees / gearing;
         }
 
         int getNumTurns() {
@@ -81,7 +91,7 @@ class AS5600 {
         float degAngle = 0;
 
         Wire.beginTransmission(Register::DATA);
-        Wire.write(Register::ANG_HIGH);
+        Wire.write(Register::RAW_ANG_HIGH);
         Wire.endTransmission(false);
         Wire.requestFrom(Register::DATA, 2);
 
@@ -94,7 +104,7 @@ class AS5600 {
         totalRead = lowRead | highRead;
 
         // 12 bits -> 2^12 ticks. Thus (/ticks) * 360.0 //
-        degAngle = totalRead * (360.0 / std::pow(2, 12)) * 1;
+        degAngle = totalRead * (360.0 / std::pow(2, 12));
 
         float correctedAngle = degAngle - offsetAngle;
 
@@ -104,35 +114,24 @@ class AS5600 {
         return correctedAngle;
     };
 
-    int getQuadrant(float pAngleDegrees){
-        int quadrantNum = 0;
-
-        if(pAngleDegrees >= 0 && pAngleDegrees <= 90) quadrantNum = 1;
-        else if(pAngleDegrees > 90 && pAngleDegrees <= 180) quadrantNum = 2;
-        else if(pAngleDegrees > 180 && pAngleDegrees <= 270) quadrantNum = 3;
-        else if(pAngleDegrees > 270 && pAngleDegrees < 360) quadrantNum = 4;
-        else if(pAngleDegrees==360) quadrantNum = 1;
-
-        return quadrantNum;
-    }
-
     float getRelativePositionDegrees(float pAngle){
+        float delta = pAngle - previousAngle;
 
-        int currentQuadrant = 0;
+        const float WRAP_THRESHOLD = 300.0;   // near-360 jump = real wrap
+        const float NOISE_FLOOR = 180.0;      // above this but below wrap = suspect read
 
-        // Assuming CW is + //
-        currentQuadrant = getQuadrant(pAngle);
+        if (delta >= WRAP_THRESHOLD) {
+            numTurns--;                       // wrapped backward through 0
+        } else if (delta <= -WRAP_THRESHOLD) {
+            numTurns++;                       // wrapped forward through 360
+        } else if (fabs(delta) > NOISE_FLOOR) {
 
-        if(currentQuadrant != previousQuadrant) {
-            if(currentQuadrant == 1 && previousQuadrant == 4) numTurns++;
-            if(currentQuadrant == 4 && previousQuadrant == 1) numTurns--;
+            return relativePositionDegrees;
+        }
 
-            previousQuadrant = currentQuadrant;
-        };
+        previousAngle = pAngle;
 
-        pAngle = numTurns * 360 + pAngle;
-
-        return pAngle;
+        return numTurns * 360 + pAngle;
     };
 
     public:
@@ -154,7 +153,50 @@ class AS5600 {
             // MD is at bit 5, thus 2^5 = 32. &32 zeros the rest of the bits //
             return (statusRead & 32) == 32;
         };
+
+        float getAGC() {
+            uint8_t agc = 0;
+            Wire.beginTransmission(Register::DATA);
+            Wire.write(Register::AGC);
+            Wire.endTransmission(false);
+            Wire.requestFrom(Register::DATA, 1);
+            agc = Wire.read();
+            return agc;
+        };
+
+        float getMagnitude() {
+            int lowRead = 0; 
+            int highRead = 0;
+
+            Wire.beginTransmission(Register::DATA);
+            Wire.write(Register::MAG_HIGH);
+            Wire.endTransmission(false);
+            Wire.requestFrom(Register::DATA, 2);
+
+            highRead = Wire.read();
+            lowRead = Wire.read();
+
+            return (highRead << 8) | lowRead;
+        };
         
+        float getRawAngleDegrees() {
+            int lowRead = 0;
+            int highRead = 0;
+            float totalRead = 0;
+
+            Wire.beginTransmission(Register::DATA);
+            Wire.write(Register::RAW_ANG_HIGH);
+            Wire.endTransmission(false);
+            Wire.requestFrom(Register::DATA, 2);
+
+            highRead = Wire.read();
+            lowRead = Wire.read();
+
+            highRead = highRead << 8;
+            totalRead = lowRead | highRead;
+
+            return totalRead * (360.0 / std::pow(2, 12));
+        };
 
 
 };

@@ -1,6 +1,11 @@
+#include <Arduino.h>
 #include <cmath>
 #include <string>
 #include <esp32-hal-gpio.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 
 class NEMA17{
 
@@ -48,7 +53,7 @@ class NEMA17{
             // Defaults to Full //
             currentStep = MICROSTEP::FULL;
             ledcChannel = nextLedcChannel++;
-
+            
 
         };
 
@@ -65,7 +70,9 @@ class NEMA17{
 
             wake();
             enable();
-
+            
+            Serial.println("hi");
+            
             return true;
         }
 
