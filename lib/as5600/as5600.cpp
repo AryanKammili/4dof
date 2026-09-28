@@ -12,6 +12,7 @@ class AS5600 {
     private:
         float offsetAngle;
         float gearing;
+        bool invert;
         std::string name;
 
         int SDA_PIN;
@@ -21,14 +22,17 @@ class AS5600 {
         int previousAngle;
         float rawPositionDegrees;
         float relativePositionDegrees;
+        float velocityDegreesPerSecond;
         int numTurns;
+        uint32_t lastUpdateMs;
 
         bool CCWPositive = false;
 
     public:
-        AS5600(float offsetAngle, float gearing, int SDA_PIN, int SCL_PIN, int DIR_PIN, std::string name) {
+        AS5600(float offsetAngle, float gearing, bool invert, int SDA_PIN, int SCL_PIN, int DIR_PIN, std::string name) {
             this->offsetAngle = offsetAngle;
             this->gearing = gearing;
+            this->invert = invert;
             this->name = name;
 
             this->SDA_PIN = SDA_PIN;
@@ -38,7 +42,9 @@ class AS5600 {
             previousAngle = 0;
             rawPositionDegrees = 0;
             relativePositionDegrees = 0;
+            velocityDegreesPerSecond = 0;
             numTurns = 0;
+            lastUpdateMs = 0;
 
         }
 
@@ -51,23 +57,39 @@ class AS5600 {
             }
 
             rawPositionDegrees = getPositionDegrees();
+            previousAngle = rawPositionDegrees;
             relativePositionDegrees = getRelativePositionDegrees(rawPositionDegrees);
+            lastUpdateMs = millis();
 
             return true;
         }
 
         void update() {
+            const float previousRelativePosition = relativePositionDegrees;
+            const uint32_t now = millis();
             rawPositionDegrees = getPositionDegrees();
             relativePositionDegrees = getRelativePositionDegrees(rawPositionDegrees);
+
+            // Calculation for Velocity is going to happen just within the loop //
+            const uint32_t elapsedMs = now - lastUpdateMs;
+            if (elapsedMs > 0) {
+                velocityDegreesPerSecond =
+                    ((relativePositionDegrees - previousRelativePosition) * 1000.0f / elapsedMs);
+            }
+            lastUpdateMs = now;
         };
 
         // getter functions to be used outside of class //
         float getAbsolutePositionDegrees() {
-            return rawPositionDegrees / gearing;
+            return rawPositionDegrees;
         }
 
         float getRelativePositionDegrees() {
-            return relativePositionDegrees / gearing;
+            return relativePositionDegrees;
+        }
+
+        float getVelocityDegreesPerSecond() {
+            return velocityDegreesPerSecond;
         }
 
         int getNumTurns() {
@@ -77,64 +99,6 @@ class AS5600 {
         std::string getName() {
             return name;
         }
-
-        void debug() {
-            std::cout << "======Encoder " << name << " debug string ======" << std::endl;
-            std::cout << "Relative Position: " << relativePositionDegrees << std::endl;
-            std::cout << "Absolute Position: " << rawPositionDegrees << std::endl;  
-        }
-
-    float getPositionDegrees(){
-        int lowRead = 0;
-        int highRead = 0;
-        float totalRead = 0;
-        float degAngle = 0;
-
-        Wire.beginTransmission(Register::DATA);
-        Wire.write(Register::RAW_ANG_HIGH);
-        Wire.endTransmission(false);
-        Wire.requestFrom(Register::DATA, 2);
-
-        highRead = Wire.read();
-        lowRead = Wire.read();
-
-        // Shift the high read up 8 so that it represents the original 12 bit info //
-        highRead = highRead << 8;
-
-        totalRead = lowRead | highRead;
-
-        // 12 bits -> 2^12 ticks. Thus (/ticks) * 360.0 //
-        degAngle = totalRead * (360.0 / std::pow(2, 12));
-
-        float correctedAngle = degAngle - offsetAngle;
-
-        if(correctedAngle < 0)
-            correctedAngle += 360;
-
-        return correctedAngle;
-    };
-
-    float getRelativePositionDegrees(float pAngle){
-        float delta = pAngle - previousAngle;
-
-        const float WRAP_THRESHOLD = 300.0;   // near-360 jump = real wrap
-        const float NOISE_FLOOR = 180.0;      // above this but below wrap = suspect read
-
-        if (delta >= WRAP_THRESHOLD) {
-            numTurns--;                       // wrapped backward through 0
-        } else if (delta <= -WRAP_THRESHOLD) {
-            numTurns++;                       // wrapped forward through 360
-        } else if (fabs(delta) > NOISE_FLOOR) {
-
-            return relativePositionDegrees;
-        }
-
-        previousAngle = pAngle;
-
-        return numTurns * 360 + pAngle;
-    };
-
-    public:
 
         bool hasMagnet(){
             int statusRead = 0;
@@ -198,5 +162,63 @@ class AS5600 {
             return totalRead * (360.0 / std::pow(2, 12));
         };
 
+        void debug() {
+            std::cout << "======Encoder " << name << " debug string ======" << std::endl;
+            std::cout << "Relative Position: " << relativePositionDegrees << std::endl;
+            std::cout << "Absolute Position: " << rawPositionDegrees << std::endl;  
+        }
+
+    float getPositionDegrees(){
+        int lowRead = 0;
+        int highRead = 0;
+        float totalRead = 0;
+        float degAngle = 0;
+
+        Wire.beginTransmission(Register::DATA);
+        Wire.write(Register::RAW_ANG_HIGH);
+        Wire.endTransmission(false);
+        Wire.requestFrom(Register::DATA, 2);
+
+        highRead = Wire.read();
+        lowRead = Wire.read();
+
+        // Shift the high read up 8 so that it represents the original 12 bit info //
+        highRead = highRead << 8;
+
+        totalRead = lowRead | highRead;
+
+        // 12 bits -> 2^12 ticks. Thus (/ticks) * 360.0 //
+        degAngle = totalRead * (360.0 / std::pow(2, 12));
+
+        float correctedAngle = degAngle - offsetAngle;
+
+        if(correctedAngle < 0)
+            correctedAngle += 360;
+
+        return correctedAngle;
+    };
+
+    float getRelativePositionDegrees(float pAngle){
+        float angleDelta = pAngle - previousAngle;
+
+        const float wrapThreshold = 300.0;   // near-360 jump = real wrap
+        const float noiseFloor = 180.0;      // above this but below wrap = suspect read
+
+        if (angleDelta >= wrapThreshold) {
+            numTurns--;                       // wrapped backward through 0
+        } 
+        
+        else if (angleDelta <= -wrapThreshold) {
+            numTurns++;                       // wrapped forward through 360
+        } 
+        
+        else if (fabs(angleDelta) > noiseFloor) {
+            return relativePositionDegrees;
+        }
+
+        previousAngle = pAngle;
+
+        return numTurns * 360 + pAngle;
+    };
 
 };
