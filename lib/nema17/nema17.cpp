@@ -40,7 +40,7 @@ class NEMA17{
 
         MICROSTEP currentStep;
 
-        NEMA17(std::string name, int DIR, int STEP, int MS1, int MS2, int MS3, int ENABLE, int SLEEP) {
+        NEMA17(std::string name, int DIR, int STEP) {
             this -> name = name;
             this -> DIR = DIR;
             this -> STEP = STEP;
@@ -53,17 +53,15 @@ class NEMA17{
             // Defaults to Full //
             currentStep = MICROSTEP::FULL;
             ledcChannel = nextLedcChannel++;
-            
-
         };
 
         bool begin() {
             pinMode(DIR, OUTPUT);
-            pinMode(MS1, OUTPUT);
-            pinMode(MS2, OUTPUT);
-            pinMode(MS3, OUTPUT);
-            pinMode(ENABLE, OUTPUT);
-            pinMode(SLEEP, OUTPUT);
+            // pinMode(MS1, OUTPUT);
+            // pinMode(MS2, OUTPUT);
+            // pinMode(MS3, OUTPUT);
+            // pinMode(ENABLE, OUTPUT);
+            // pinMode(SLEEP, OUTPUT);
 
             ledcSetup(ledcChannel, 1000, 8);
             ledcAttachPin(STEP, ledcChannel);

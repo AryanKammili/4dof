@@ -3,9 +3,6 @@
 #include <cmath>
 #include <string>
 
-
-//TODO  : Figure out inverse logic //
-//TODO  : Figure out gearing logic //
 //TODO  : Add active warning setup //
 class AS5600 {
 
@@ -169,31 +166,18 @@ class AS5600 {
         }
 
     float getPositionDegrees(){
-        int lowRead = 0;
-        int highRead = 0;
-        float totalRead = 0;
-        float degAngle = 0;
+        float gearedDegAngle = getRawAngleDegrees() / gearing;
 
-        Wire.beginTransmission(Register::DATA);
-        Wire.write(Register::RAW_ANG_HIGH);
-        Wire.endTransmission(false);
-        Wire.requestFrom(Register::DATA, 2);
+        // Keep the sensor's raw angle in its native direction.  Inversion is
+        // applied around the calibrated zero so that offsetAngle remains the
+        // encoder angle that represents the joint's zero position.
+        float correctedAngle = invert ? offsetAngle - gearedDegAngle : gearedDegAngle - offsetAngle;
 
-        highRead = Wire.read();
-        lowRead = Wire.read();
-
-        // Shift the high read up 8 so that it represents the original 12 bit info //
-        highRead = highRead << 8;
-
-        totalRead = lowRead | highRead;
-
-        // 12 bits -> 2^12 ticks. Thus (/ticks) * 360.0 //
-        degAngle = totalRead * (360.0 / std::pow(2, 12));
-
-        float correctedAngle = degAngle - offsetAngle;
+        // Really cool function I found online that allows for % on floats //
+        correctedAngle = fmodf(correctedAngle, 360.0);
 
         if(correctedAngle < 0)
-            correctedAngle += 360;
+            correctedAngle += 360.0;
 
         return correctedAngle;
     };
@@ -205,14 +189,14 @@ class AS5600 {
         const float noiseFloor = 180.0;      // above this but below wrap = suspect read
 
         if (angleDelta >= wrapThreshold) {
-            numTurns--;                       // wrapped backward through 0
+            --numTurns;                       // wrapped backward through 0
         } 
         
         else if (angleDelta <= -wrapThreshold) {
-            numTurns++;                       // wrapped forward through 360
-        } 
+            ++numTurns;                       // wrapped forward through 360
+        }
         
-        else if (fabs(angleDelta) > noiseFloor) {
+        else if (std::abs(angleDelta) > noiseFloor) {
             return relativePositionDegrees;
         }
 
