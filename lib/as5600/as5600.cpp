@@ -78,7 +78,7 @@ class AS5600 {
 
         // getter functions to be used outside of class //
         float getAbsolutePositionDegrees() {
-            return rawPositionDegrees;
+            return rawPositionDegrees / gearing;
         }
 
         float getRelativePositionDegrees() {
@@ -166,12 +166,12 @@ class AS5600 {
         }
 
     float getPositionDegrees(){
-        float gearedDegAngle = getRawAngleDegrees() / gearing;
+        float degAngle = getRawAngleDegrees();
 
         // Keep the sensor's raw angle in its native direction.  Inversion is
         // applied around the calibrated zero so that offsetAngle remains the
         // encoder angle that represents the joint's zero position.
-        float correctedAngle = invert ? offsetAngle - gearedDegAngle : gearedDegAngle - offsetAngle;
+        float correctedAngle = invert ? offsetAngle - degAngle : degAngle - offsetAngle;
 
         // Really cool function I found online that allows for % on floats //
         correctedAngle = fmodf(correctedAngle, 360.0);
@@ -202,7 +202,7 @@ class AS5600 {
 
         previousAngle = pAngle;
 
-        return numTurns * 360 + pAngle;
+        return (numTurns * 360 + pAngle) / gearing;
     };
 
 };

@@ -12,7 +12,7 @@ class Constants {
         static const int J1_ENCODER_DIR = 6;
 
         static const int J1_ENCODER_OFFSET = 0.0;
-        static const int J1_ENCODER_GEARING = 1.0;
+        static constexpr float J1_ENCODER_GEARING = 1.0;
         static const bool J1_ENCODER_INVERT = false;
 
         static const int J1_DRIVER_MS1 = 18;
