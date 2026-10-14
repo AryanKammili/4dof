@@ -57,11 +57,11 @@ class NEMA17{
 
         bool begin() {
             pinMode(DIR, OUTPUT);
-            // pinMode(MS1, OUTPUT);
-            // pinMode(MS2, OUTPUT);
-            // pinMode(MS3, OUTPUT);
-            // pinMode(ENABLE, OUTPUT);
-            // pinMode(SLEEP, OUTPUT);
+            pinMode(MS1, OUTPUT);
+            pinMode(MS2, OUTPUT);
+            pinMode(MS3, OUTPUT);
+            pinMode(ENABLE, OUTPUT);
+            pinMode(SLEEP, OUTPUT);
 
             ledcSetup(ledcChannel, 1000, 8);
             ledcAttachPin(STEP, ledcChannel);

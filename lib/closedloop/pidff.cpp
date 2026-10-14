@@ -1,8 +1,11 @@
 
+#include <cmath>
+#include <string>
+#include <esp32-hal.h>
 
 class pid {
 
-    public: 
+    private: 
 
         float kP;
         float kI;
@@ -13,14 +16,13 @@ class pid {
         float kG;
 
         float setpoint;
-
         float currentError;
         float lastError;
 
-        float timestamp;
+        float lastTimeUpdateMs;
 
-
-        pid(float p, float i, float d, float s, float v, float g, float timestamp) {
+    public:
+        pid(float p, float i, float d, float s, float v, float g) {
             this->kP = p;
             this->kI = i;
             this->kD = d;
@@ -28,18 +30,26 @@ class pid {
             this->kV = v;
             this->kG = g;
 
-            this->timestamp = timestamp;
-
             currentError = 0.0;
             lastError = 0.0;
+            lastTimeUpdateMs = millis();
+        }
+
+        // This loop will run in the main loop in main.cpp and will be used to update timestamps along with error tracking //
+        void update() {
+            float currentTimeMs = millis();
+            float dt = currentTimeMs = lastTimeUpdateMs;
+
+
+            lastTimeUpdateMs = currentTimeMs;
 
         }
 
-        float calculate(float currentPosition, float setpoint) {
+        float calculate(float currentPosition, float setpoint, float dT) {
             lastError = currentError;
             currentError = setpoint - currentPosition; 
 
-            float derivativeTerm = (currentError - lastError) / (timestamp);
+            float derivativeTerm = (currentError - lastError) / (dT);
 
             float output = (kP * currentError) + kI + (kD * derivativeTerm);
 

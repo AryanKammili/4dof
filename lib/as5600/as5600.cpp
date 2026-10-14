@@ -2,6 +2,7 @@
 #include "Register.h"
 #include <cmath>
 #include <string>
+#include <esp32-hal.h>
 
 //TODO  : Add active warning setup //
 class AS5600 {
@@ -21,7 +22,7 @@ class AS5600 {
         float relativePositionDegrees;
         float velocityDegreesPerSecond;
         int numTurns;
-        uint32_t lastUpdateMs;
+        float lastTimeUpdateMs;
 
         bool CCWPositive = false;
 
@@ -41,7 +42,7 @@ class AS5600 {
             relativePositionDegrees = 0;
             velocityDegreesPerSecond = 0;
             numTurns = 0;
-            lastUpdateMs = 0;
+            lastTimeUpdateMs = 0;
 
         }
 
@@ -56,7 +57,7 @@ class AS5600 {
             rawPositionDegrees = getPositionDegrees();
             previousAngle = rawPositionDegrees;
             relativePositionDegrees = getRelativePositionDegrees(rawPositionDegrees);
-            lastUpdateMs = millis();
+            lastTimeUpdateMs = millis();
 
             return true;
         }
@@ -68,12 +69,12 @@ class AS5600 {
             relativePositionDegrees = getRelativePositionDegrees(rawPositionDegrees);
 
             // Calculation for Velocity is going to happen just within the loop //
-            const uint32_t elapsedMs = now - lastUpdateMs;
+            const uint32_t elapsedMs = now - lastTimeUpdateMs;
             if (elapsedMs > 0) {
                 velocityDegreesPerSecond =
                     ((relativePositionDegrees - previousRelativePosition) * 1000.0f / elapsedMs);
             }
-            lastUpdateMs = now;
+            lastTimeUpdateMs = now;
         };
 
         // getter functions to be used outside of class //
